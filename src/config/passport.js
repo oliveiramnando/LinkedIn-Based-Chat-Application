@@ -14,7 +14,7 @@ module.exports = function(passport) {
     async (accessToken, refreshToken, profile, done) => {
         try {
             const linkedinID = profile.id;
-            const name = `${progile.name.givenName} ${profile.name.familyName}`;
+            const name = `${profile.name.givenName} ${profile.name.familyName}`;
             const email = profile.emails[0].value;
             const picture = profile.photos[0].value;
 
