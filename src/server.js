@@ -1,5 +1,10 @@
 require('dotenv').config();
 
+if (!process.env.MONGODB_URI || !process.env.JWT_SECRET) {
+    console.error('Missing required env vars');
+    process.exit(1);
+}
+
 const express = require('express');
 const http = require('http');
 const mongoose = require('mongoose');
@@ -13,6 +18,7 @@ const authRoutes = require('./routes/auth');
 require('./config/passport')(passport);
 
 const app = express();
+app.use(express.json());
 app.use(passport.initialize());
 app.use('/auth', authRoutes);
 app.get('/', (req, res) => res.json({ status: 'OK' }));
@@ -21,11 +27,45 @@ mongoose.connect(process.env.MONGODB_URI, { // connecting to mongdb
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
-    .then(() => console.log('MongoDB connected'))
-    .catch(err => {
-        console.error('MongoDB connection error:', err);
-        process.exit(1);
-    });
+.then(() => console.log('MongoDB connected'))
+.catch(err => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+});
+
+// middleware to authenticate JWT on HTTP routes
+function authenticateJWT(req, res, next){ 
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Missing or invalid Authorization header'});
+    }
+    const token = authHeader.split(' ')[1];
+    try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        req.userId = payload.id;
+        next();
+    } catch(err) {
+        return res.status(401).json({ message: 'Invalid or expired token'});
+    }
+}
+
+// returns the full chat history, sorted by most recent message last
+app.get('/messages/:userId', authenticateJWT, async (req, res) => {
+    const otherUserId = req.params.userId;
+    try { 
+        const messages = await Message.find({
+            $or: [
+                { sender: req.userId, receiver: otherUserId},
+                { sender: otherUserId, receiver: req.userId }
+            ]
+        })
+        .sort({ timestamp: 1 });
+        return res.json(messages);
+    } catch (err) {
+        console.error('Error fetching chat history: ', err);
+        return res.status(500).json({ message: 'Error fetching chat history'});
+    }
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
