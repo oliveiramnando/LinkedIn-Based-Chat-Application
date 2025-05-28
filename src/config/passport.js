@@ -1,22 +1,32 @@
 require('dotenv').config();
+
 const passport = require('passport');
-const LinkedInStrategy = require('passport-linkedidn-oauth2').Strategy;
+const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
+const fetch = require('node-fetch');
 const User = require('../models/User');
 
 module.exports = function(passport) {
     passport.use(new LinkedInStrategy({
         clientID: process.env.LINKEDIN_CLIENT_ID,
-        clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+        clientSecret:    process.env.LINKEDIN_CLIENT_SECRET,
         callbackURL: `${process.env.BASE_URL}/auth/linkedin/callback`,
-        scope: ['r_liteprofile', 'r_emailaddress'],
-        state: true
+        scope: ['openid', 'profile', 'email'], 
+        state: false,
+        skipUserProfile: true                              
     },
-    async (accessToken, refreshToken, profile, done) => {
+    async (accessToken, refreshToken, _, done) => {
         try {
-            const linkedinID = profile.id;
-            const name = `${profile.name.givenName} ${profile.name.familyName}`;
-            const email = profile.emails[0].value;
-            const picture = profile.photos[0].value;
+            // Call the OIDC userinfo endpoint
+            const res = await fetch('https://api.linkedin.com/v2/userinfo', {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const info = await res.json();
+
+            // Extract fields from the OIDC response
+            const linkedinId = info.sub;
+            const name = info.name;
+            const email = info.email || null;
+            const picture = info.picture || null;
 
             let user = await User.findOne({ linkedinId });
             if (!user) {
@@ -27,10 +37,10 @@ module.exports = function(passport) {
                 user.profilePicture = picture;
                 await user.save();
             }
+
             return done(null, user);
         } catch (err) {
             return done(err, null);
         }
-    }
-));
-}
+    }));
+};

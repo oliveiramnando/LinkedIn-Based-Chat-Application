@@ -4,9 +4,10 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 router.get(
-    '/likendin',
+    '/linkedin',
     passport.authenticate('linkedin', {
-        scope: ['r_liteprofile', 'r_emailaddress']
+        scope: ['openid', 'profile', 'email']
+        // state: true
     })
 );
 

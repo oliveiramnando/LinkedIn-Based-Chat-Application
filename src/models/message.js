@@ -6,7 +6,7 @@ const messageSchema = new Schema({
         type: Schema.Types.ObjectId,    // stores mongodb objectid pointing to another document
         ref: 'User',                    // refers to user collection
         required: true,                 // must be present when saving a meessage 
-        index: true                     // 
+        index: true  
     },
     receiver: {
         type: Schema.Types.ObjectId,
