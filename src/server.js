@@ -19,6 +19,17 @@ require('./config/passport')(passport);
 
 const app = express();
 app.use(express.json());
+
+
+app.use((err, req, res, next) => {
+    // Error handling
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        console.error('Invalid Json Payload:', err);
+        return res.status(400).json({ message: 'Invalid JSON payload'});
+    }
+    next();
+});
+
 app.use(passport.initialize());
 app.use('/auth', authRoutes);
 app.get('/', (req, res) => res.json({ status: 'OK' }));
@@ -100,6 +111,20 @@ app.post('/messages', authenticateJWT, async (req, res) => {
     }
 });
 
+// Error handloing
+app.use((req, res) => {
+    res.status(404).json({ message: 'Endpoint not found'});
+});
+
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    if (res.headersSent) {
+        return next(err);
+    }
+    const status = err.status || 500;
+    const message = err.message || 'Internal server error';
+    res.status(status).json({ message });
+});
 
 // authenticate each incoming socket connection
 io.use((socket, next) => {
