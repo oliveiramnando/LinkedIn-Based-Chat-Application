@@ -23,6 +23,11 @@ app.use(passport.initialize());
 app.use('/auth', authRoutes);
 app.get('/', (req, res) => res.json({ status: 'OK' }));
 
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: { origin: '*' } // replace '*' with frontend url
+});
+
 mongoose.connect(process.env.MONGODB_URI, { // connecting to mongdb
     useNewUrlParser: true,
     useUnifiedTopology: true
@@ -67,10 +72,34 @@ app.get('/messages/:userId', authenticateJWT, async (req, res) => {
     }
 });
 
-const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: '*' } // replace '*' with frontend url
+app.post('/messages', authenticateJWT, async (req, res) => {
+    const { to, content } = req.body;
+    if (!to || !content) {
+        return res.status(400).json({ message: 'Both "to" and "content" are required'});
+    }
+    try {
+        const now = new Date();
+
+        const msg = new Message({
+            sender: req.userId,
+            receiver: to,
+            content: content,
+            timestamp: now
+        });
+        await msg.save();
+
+        io.to(`user:${to}`).emit('receive_message', {
+            sender: req.userId,
+            content: content,
+            timestamp: now
+        });
+        return res.status(201).json(msg);
+    } catch (err) {
+        console.error('Error saving message:', err);
+        return res.status(500).json({ message: 'Error sending message'});
+    }
 });
+
 
 // authenticate each incoming socket connection
 io.use((socket, next) => {
