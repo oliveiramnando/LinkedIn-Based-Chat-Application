@@ -26,7 +26,7 @@ A Node.js + Express backend that enables LinkedIn OAuth 2.0 login, real-time mes
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/linkedin-chat-backend.git
+git clone git@github.com:oliveiramnando/LinkedIn-Based-Chat-Application.git
 cd linkedin-chat-backend
 
 # 2. Install dependencies
